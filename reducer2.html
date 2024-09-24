@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Compressor - Side by Side</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start; /* Changed from center to flex-start to ensure everything is visible */
+            height: 100vh;
+            background-color: #f0f0f0;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .container {
+            text-align: center;
+            background: white;
+            padding: 20px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+            width: 80%;
+            max-width: 1000px;
+            overflow-y: auto;
+            overflow-x: hidden; /* Disable horizontal scroll */
+            max-height: 90vh;
+            box-sizing: border-box;
+        }
+        #dropZone {
+            width: 100%;
+            padding: 50px;
+            border: 3px dashed #007bff;
+            border-radius: 10px;
+            background-color: #e9f5ff;
+            color: #007bff;
+            margin-bottom: 20px;
+            cursor: pointer;
+            box-sizing: border-box;
+        }
+        .dropZone.hover {
+            background-color: #d1eaff;
+        }
+        .imageContainer {
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap; /* Allow wrapping for responsive behavior */
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #ddd;
+        }
+        .imagePreview {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex-basis: 48%; /* Make each image preview take up half of the width */
+            box-sizing: border-box;
+            margin-bottom: 20px; /* Margin between rows */
+        }
+        canvas, img {
+            height: 300px;
+            margin-bottom: 10px;
+            max-width: 100%; /* Ensure images are responsive */
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .compressedInfo {
+            font-size: 0.9rem;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Image Compressor</h1>
+        <div id="dropZone" class="dropZone">Drag & Drop Images Here</div>
+        <div id="imageContainer"></div>
+    </div>
+
+    <script>
+        const dropZone = document.getElementById('dropZone');
+        const imageContainer = document.getElementById('imageContainer');
+
+        // Highlight drop zone when dragging files over
+        dropZone.addEventListener('dragenter', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('hover');
+        });
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('hover');
+        });
+
+        dropZone.addEventListener('dragleave', (e) => {
+            dropZone.classList.remove('hover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('hover');
+            const files = e.dataTransfer.files;
+            handleFiles(files);
+        });
+
+        // Handle the files dropped or uploaded
+        function handleFiles(files) {
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                if (file && file.type.startsWith('image/')) {
+                    compressImage(file);
+                }
+            }
+        }
+
+        function compressImage(file) {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+
+            reader.onload = (e) => {
+                const img = new Image();
+                img.src = e.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    
+                    const scaleFactor = 0.8; // Compression scale factor
+                    const width = img.width * scaleFactor;
+                    const height = img.height * scaleFactor;
+                    canvas.width = width;
+                    canvas.height = height;
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    // Create a blob and show download button
+                    canvas.toBlob((blob) => {
+                        const compressedFile = new File([blob], "compressed_" + file.name, { type: "image/jpeg" });
+                        const fileSizeKB = (compressedFile.size / 1024).toFixed(2);
+
+                        // Create a container for each image comparison
+                        const imageComparison = document.createElement('div');
+                        imageComparison.classList.add('imageContainer');
+                        
+                        // Original Image Preview
+                        const originalPreview = document.createElement('div');
+                        originalPreview.classList.add('imagePreview');
+                        const originalImg = document.createElement('img');
+                        originalImg.src = e.target.result;
+                        originalPreview.appendChild(originalImg);
+                        const originalLabel = document.createElement('p');
+                        originalLabel.textContent = `Original: ${(file.size / 1024).toFixed(2)} KB`;
+                        originalPreview.appendChild(originalLabel);
+                        
+                        // Compressed Image Preview
+                        const compressedPreview = document.createElement('div');
+                        compressedPreview.classList.add('imagePreview');
+                        compressedPreview.appendChild(canvas);
+
+                        // Create download button for compressed image
+                        const downloadBtn = document.createElement('button');
+                        downloadBtn.textContent = `Download Compressed`;
+                        downloadBtn.addEventListener('click', () => {
+                            const link = document.createElement('a');
+                            link.href = URL.createObjectURL(compressedFile);
+                            link.download = "compressed_" + file.name;
+                            link.click();
+                        });
+                        compressedPreview.appendChild(downloadBtn);
+
+                        // File size info for compressed image
+                        const compressedLabel = document.createElement('p');
+                        compressedLabel.classList.add('compressedInfo');
+                        compressedLabel.textContent = `Compressed: ${fileSizeKB} KB`;
+                        compressedPreview.appendChild(compressedLabel);
+
+                        // Append both the original and compressed image previews
+                        imageComparison.appendChild(compressedPreview);
+                        imageComparison.appendChild(originalPreview);
+
+                        // Add the image comparison to the container
+                        imageContainer.appendChild(imageComparison);
+                    }, 'image/jpeg', 0.7); // Quality level for compression (0.7)
+                };
+            };
+        }
+    </script>
+</body>
+</html>
